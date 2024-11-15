@@ -425,90 +425,82 @@ def compute_nonsep_covar(j, hx, ht, gamma_v, alpha_v, DIM):
     except Exception as e:
         print(f"Error in compute_nonsep_covar: {e}")
         return np.nan
-# Define parameters for Model A: Separable order 1
-alpha_t = 1
-alpha_s = 2
-alpha_e = 1
-DIM = 2
+def ComputeExample(alpha_t, alpha_s, alpha_e, DIM, rt_factor):
+    N=64
+    alpha_v = [alpha_t, alpha_s, alpha_e]
+    alpha = alpha_e + alpha_s * (alpha_t - 1 / 2)
+    nu_spatial = alpha - DIM / 2
+    range_s = 1
+    gamma_s = np.sqrt(8 * nu_spatial) / range_s
+
+    # Temporal correlation range
+    nu_time = min(alpha_t - 1 / 2, nu_spatial / alpha_s) if alpha_s != 0 else alpha_t - 1 / 2
+    range_t = 1 * rt_factor
+    gamma_t = range_t * gamma_s**alpha_s / np.sqrt(8 * (alpha_t - 1 / 2)) if alpha_t != 1 / 2 else 1.0
+
+    # Variance setting for gamma_0
+    sigma2 = (
+        gamma(alpha_t - 1 / 2) * gamma(alpha - DIM / 2) /
+        (gamma(alpha_t) * gamma(alpha) * ((4 * np.pi)**((DIM+1)/2)) * gamma_t * gamma_s**(2 * (alpha - DIM / 2)))
+    )
+    gamma_0 = np.sqrt(sigma2)
+    gamma_v = [gamma_t, gamma_s, gamma_0]
+
+
+    # Parameters for the spatial domain
+    dim = [64, 64]     # Spatial dimensions
+    L = [1.25*rt_factor, 1.25*rt_factor]       # Spatial range in each dimension
+    hx = np.linspace(0, L[0], dim[0])  # Regularly spaced vector for covariance
+    ht = np.linspace(0, L[1], dim[1])
+
+    DIM = 2                    # 2D spatial domain                 # Temporal correlation lag
+    # Generate the covariance matrix
+    C = np.zeros((len(hx), len(ht)))  
+
+    for j in range(64):
+        print(".", end="")
+        res = nonsep_covar(hx, ht[j], gamma_v, alpha_v, DIM)
+        C[:, j] = res[:, 0]
+    C = C.T
+    return C
+
 rt_factor = 1
-alpha_v = [alpha_t, alpha_s, alpha_e]
-N=64
-alpha = alpha_e + alpha_s * (alpha_t - 1 / 2)
-nu_spatial = alpha - DIM / 2
-range_s = 1
-gamma_s = np.sqrt(8 * nu_spatial) / range_s
-
-# Temporal correlation range
-nu_time = min(alpha_t - 1 / 2, nu_spatial / alpha_s) if alpha_s != 0 else alpha_t - 1 / 2
-range_t = 1 * rt_factor
-gamma_t = range_t * gamma_s**alpha_s / np.sqrt(8 * (alpha_t - 1 / 2)) if alpha_t != 1 / 2 else 1.0
-
-# Variance setting for gamma_0
-sigma2 = (
-    gamma(alpha_t - 1 / 2) * gamma(alpha - DIM / 2) /
-    (gamma(alpha_t) * gamma(alpha) * ((4 * np.pi)**((DIM+1)/2)) * gamma_t * gamma_s**(2 * (alpha - DIM / 2)))
-)
-gamma_0 = np.sqrt(sigma2)
-gamma_v = [gamma_t, gamma_s, gamma_0]
-
-
-# Parameters for the spatial domain
-dim = [64, 64]     # Spatial dimensions
-L = [1.25*rt_factor, 1.25*rt_factor]       # Spatial range in each dimension
-h = [L[i] / dim[i] for i in range(len(dim))]  # Spatial steps based on dim and L
-hx = np.linspace(0, L[0], dim[0])  # Regularly spaced vector for covariance
+dim = [64, 64]     
+L = [1.25*rt_factor, 1.25*rt_factor]       
+h = [L[i] / dim[i] for i in range(len(dim))]  
+hx = np.linspace(0, L[0], dim[0])  
 ht = np.linspace(0, L[1], dim[1])
 
-# Example values for covariance function parameters (from previous steps)
-#gamma_v = [1.0, 1.0, 1.0]  # gamma_t, gamma_s, gamma_0
-#alpha_v = [1.5, 1.0, 1.0]  # alpha_t, alpha_s, alpha_e
-DIM = 2                    # 2D spatial domain                 # Temporal correlation lag
-# Generate the covariance matrix
-C = np.zeros((len(hx), len(ht)))  # Initialize C matrix
+#input the data for alpha_t, alpha_s, alpha_3, dimension, rt_factor
+C1 = ComputeExample(1,0,2,2,1)
+C2 = ComputeExample(1,2,1,2,1)
+C3 = ComputeExample(2,0,2,2,1)
+C4 = ComputeExample(2,2,0,2,1)
 
-C = np.zeros((len(hx), len(ht)))  # Initialize C matrix
+C = [C1, C2, C3, C4]
+titles = ["A: Separable order 1", "B: Critical diffusion", 
+          "C: Separable order 2", "D: Iterated diffusion"]
 
-
-C = np.zeros((len(hx), len(ht)))
-for j in range(N):
-    print(".", end="")
-    res = nonsep_covar(hx, ht[j], gamma_v, alpha_v, DIM)
-    C[:, j] = res[:, 0]
-C = C.T
-
-# Reshape or slice the covariance matrix for 2D plotting if needed
-# Here assuming `C` is already a 2D array
+fig, axs = plt.subplots(2, 2, figsize=(10, 6))
+fig.tight_layout(pad=4.0)
 x = np.linspace(0, L[0], dim[0])
 y = np.linspace(0, L[1], dim[1])
 X, Y = np.meshgrid(x, y)
 
+for i, ax in enumerate(axs.flat):
+    # Plot contour
+    contour = ax.contourf(X, Y, C[i], levels=np.linspace(0, 1, 11), cmap="Blues")
+    cset = ax.contour(X, Y, C[i], levels=np.linspace(0, 1, 11), colors="black", linewidths=0.5)
+    ax.clabel(cset, fmt="%.1f", colors="black", fontsize=8)
+    temporal_decay = np.where(C[i][0, :] != 0, C[i] / C[i][1, :][np.newaxis,: ], 0)  # Placeholder for actual temporal decay
+    spatial_decay = np.where(C[i][:, 0] != 0, C[i] / C[i][:, 0][:, np.newaxis], 0)
+    ax.contour(X, Y, temporal_decay, levels=[0.2, 0.4, 0.6, 0.8], colors="grey", linestyles="--")
+    ax.contour(X, Y, spatial_decay, levels=[0.2, 0.4, 0.6, 0.8], colors="grey", linestyles="--")
+    # Set title and labels for each subplot
+    ax.set_title(titles[i])
+    ax.set_xlabel(r"$h_s$")
+    ax.set_ylabel(r"$h_t$")
 
-    # Contour lines
-# Temporal and spatial decays (replace with actual calculations if available)
-temporal_decay = np.where(C[0, :] != 0, C / C[0, :], 0)  # Placeholder for actual temporal decay
-spatial_decay = np.where(C[:, 0] != 0, C / C[:, 0][:, np.newaxis], 0)   # Placeholder for actual spatial decay
-
-# Set up a single plot
-fig, ax = plt.subplots(figsize=(6, 4))
-
-# Contour fill for covariance levels
-contour = ax.contourf(X, Y, C, levels=np.linspace(0, 1, 11), cmap="Blues")
-
-# Contour lines for covariance levels
-cset = ax.contour(X, Y, C, levels=np.linspace(0, 1, 11), colors="black", linewidths=0.5)
-ax.clabel(cset, fmt="%.1f", colors="black", fontsize=8)
-
-# Temporal and spatial decay overlays (grey lines)
-ax.contour(X, Y, temporal_decay, levels=[0.2, 0.4, 0.6, 0.8], colors="grey", linestyles="--")
-ax.contour(X, Y, spatial_decay, levels=[0.2, 0.4, 0.6, 0.8], colors="grey", linestyles="--")
-
-# Labels and title
-ax.set_title("B: Critical Diffusion")
-ax.set_xlabel(r"$h_s$")
-ax.set_ylabel(r"$h_t$")
-
-# Colorbar
 fig.colorbar(contour, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
-
 plt.tight_layout()
 plt.show()
