@@ -2,6 +2,6 @@ Here is the python code reproduction of the pictures in the article from R codes
 
 The oringinal codes is given by https://github.com/finnlindgren/spacetime-paper-code?tab=readme-ov-file
 
-you can just run the codes by changing the parameter given in the article, get the output of the figure by changing the name.
+you can just run the codes by changing the parameter given in the article, get the output of the figure by changing the name. This can generate 4 subplots together as shown in the paper
 
 There are still several bugs to fix for the codes now.
